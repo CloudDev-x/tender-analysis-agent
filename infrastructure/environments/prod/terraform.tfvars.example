@@ -1,0 +1,17 @@
+# =============================================================================
+# Production — Example Variable Values
+# Copy to terraform.tfvars and fill in actual values.
+# DO NOT commit terraform.tfvars to version control.
+# =============================================================================
+
+environment = "prod"
+aws_region  = "us-east-1"
+
+budget_alert_emails  = ["bid-team@mayzerock.com"]
+ses_sender_email     = "tenders@mayzerock.com"
+ses_recipient_emails = ["bid-team@mayzerock.com"]
+
+tags = {
+  Owner   = "mayzerock-devops"
+  CostTag = "tender-system"
+}

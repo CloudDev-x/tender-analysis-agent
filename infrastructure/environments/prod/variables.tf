@@ -40,13 +40,13 @@ variable "bedrock_embedding_model_arn" {
 variable "budget_limit" {
   description = "Monthly budget ceiling in USD"
   type        = number
-  default     = 100
+  default     = 450
 }
 
 variable "budget_alert_thresholds" {
   description = "Budget alert thresholds in USD"
   type        = list(number)
-  default     = [40, 55, 65, 75, 80, 100]
+  default     = [150, 200, 250, 300, 375, 450]
 }
 
 variable "budget_alert_emails" {
@@ -82,4 +82,10 @@ variable "tags" {
   description = "Common tags applied to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "bedrock_kb_id" {
+  description = "Bedrock Knowledge Base ID (set after KB creation)"
+  type        = string
+  default     = "QTOPS4AKNZ"
 }

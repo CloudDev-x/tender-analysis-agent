@@ -86,11 +86,20 @@ module "iam" {
 # -----------------------------------------------------------------------------
 # Lambda — function definitions (Phase 3+)
 # -----------------------------------------------------------------------------
-# module "lambda" {
-#   source = "../../modules/lambda"
-#   ...
-# }
 
+module "lambda" {
+  source = "../../modules/lambda"
+
+  environment             = var.environment
+  aws_region              = data.aws_region.current.name
+  aws_account_id          = data.aws_caller_identity.current.account_id
+  project_name            = var.project_name
+  dynamodb_table_name     = module.dynamodb.table_name
+  kms_key_id              = module.kms.key_id
+  bedrock_kb_id           = var.bedrock_kb_id
+  lambda_roles            = module.iam.lambda_role_arns
+  step_functions_role_arn = module.iam.step_functions_role_arn
+}
 # -----------------------------------------------------------------------------
 # Step Functions — workflow orchestration (Phase 4+)
 # -----------------------------------------------------------------------------
@@ -98,14 +107,19 @@ module "iam" {
 #   source = "../../modules/step-functions"
 #   ...
 # }
+# -----------------------------------------------------------------------------
+# Bedrock — Knowledge Base + OpenSearch Serverless
+# -----------------------------------------------------------------------------
+module "bedrock" {
+  source = "../../modules/bedrock"
 
-# -----------------------------------------------------------------------------
-# Bedrock — Knowledge Base + S3 Vectors (Phase 6+)
-# -----------------------------------------------------------------------------
-# module "bedrock" {
-#   source = "../../modules/bedrock"
-#   ...
-# }
+  project_name        = var.project_name
+  environment         = var.environment
+  aws_region          = data.aws_region.current.name
+  account_id          = data.aws_caller_identity.current.account_id
+  evidence_bucket_arn = module.s3.evidence_bucket_arn
+  kms_key_arn         = module.kms.key_arn
+}
 
 # -----------------------------------------------------------------------------
 # SES — notifications (Phase 10+)

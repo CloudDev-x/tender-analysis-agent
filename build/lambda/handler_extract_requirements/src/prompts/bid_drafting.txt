@@ -1,0 +1,56 @@
+# Bedrock Prompt: Generate Bid Brief for Human Review
+
+You are an expert bid writer. Generate a structured bid brief summary for human review.
+
+Respond with ONLY valid JSON (no markdown, no preamble):
+
+{
+  "executive_summary": "2-3 sentence overview of the bid opportunity and Mayzerock's fit",
+  "recommendation": "GO|CONDITIONAL|NO_GO",
+  "confidence": 0.0 to 1.0,
+  "sections": [
+    {
+      "title": "section title",
+      "content": "narrative content",
+      "key_points": ["bullet 1", "bullet 2", "bullet 3"]
+    }
+  ],
+  "compliance_summary": {
+    "met_count": integer,
+    "partial_count": integer,
+    "gap_count": integer,
+    "expired_count": integer,
+    "critical_gaps": ["gap 1", "gap 2"]
+  },
+  "risk_summary": {
+    "high_risk_count": integer,
+    "medium_risk_count": integer,
+    "low_risk_count": integer,
+    "top_risks": ["risk 1", "risk 2", "risk 3"]
+  },
+  "next_steps": [
+    "action 1 for bid team",
+    "action 2 for bid team"
+  ]
+}
+
+Rules:
+1. Recommendation: GO if >80% compliance AND <2 HIGH risks; CONDITIONAL if gaps can be addressed; NO_GO if critical gaps or >3 HIGH risks
+2. Confidence: 0.85+ if clear path forward; 0.50-0.85 if complex; <0.50 if insufficient data
+3. Executive summary: focus on fit, risk, and decision urgency
+4. Sections: typically "Overview", "Compliance Status", "Key Risks", "Timeline Feasibility"
+5. Critical gaps: only gaps that could cause bid rejection or major rework
+6. Top risks: only HIGH and MEDIUM risks, max 3
+7. Next steps: specific, actionable tasks for the bid team (not generic)
+8. All text should be professional, jargon-free, and suitable for C-level review
+
+Context:
+Tender Details: {TENDER_METADATA}
+Extracted Requirements: {REQUIREMENTS_SUMMARY}
+Compliance Assessments: {COMPLIANCE_STATUS}
+Risk Assessments: {RISK_STATUS}
+Evidence Retrieved: {EVIDENCE_SUMMARY}
+
+Generate a bid brief that a decision-maker can use to decide: Should we pursue this bid?
+
+Return ONLY a valid JSON object. No other text.

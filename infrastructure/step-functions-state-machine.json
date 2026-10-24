@@ -1,0 +1,325 @@
+{
+  "Comment": "Mayzerock Tender Analysis & Bid Drafting Workflow",
+  "StartAt": "ValidateUpload",
+  "States": {
+    "ValidateUpload": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-intake",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "CreateTenderRecord"
+    },
+    "CreateTenderRecord": {
+      "Type": "Pass",
+      "Result": {
+        "tender_id.$": "$.tender_id",
+        "s3_bucket.$": "$.s3_bucket",
+        "s3_key.$": "$.s3_key",
+        "workflow_status": "STARTED"
+      },
+      "Next": "DetermineDocumentType"
+    },
+    "DetermineDocumentType": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-document-profile",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "OCRQualityGateDecision"
+    },
+    "OCRQualityGateDecision": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.ocr_confidence_gate",
+          "StringEquals": "FAIL",
+          "Next": "OnFailure"
+        },
+        {
+          "Variable": "$.ocr_confidence_gate",
+          "StringEquals": "REVIEW",
+          "Next": "OnManualReview"
+        }
+      ],
+      "Default": "StartTextractJob"
+    },
+    "StartTextractJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-textract-start",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "WaitForTextract"
+    },
+    "WaitForTextract": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "PollTextractJob"
+    },
+    "PollTextractJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-textract-poll",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 5,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "TextractStatusCheck"
+    },
+    "TextractStatusCheck": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status",
+          "StringEquals": "COMPLETE",
+          "Next": "NormalizeDocument"
+        },
+        {
+          "Variable": "$.status",
+          "StringEquals": "PENDING",
+          "Next": "WaitForTextract"
+        }
+      ],
+      "Default": "OnFailure"
+    },
+    "NormalizeDocument": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-normalize",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "ExtractRequirements"
+    },
+    "ExtractRequirements": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-extract-requirements",
+      "TimeoutSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "RetrieveEvidence"
+    },
+    "RetrieveEvidence": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-retrieve-evidence",
+      "TimeoutSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "ComplianceAssessment"
+    },
+    "ComplianceAssessment": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-compliance",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "RiskAnalysis"
+    },
+    "RiskAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-risk-analysis",
+      "TimeoutSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "GenerateBidBrief"
+    },
+    "GenerateBidBrief": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-bid-drafting",
+      "TimeoutSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "ValidateOutput"
+    },
+    "ValidateOutput": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-output-validation",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "PersistResults"
+    },
+    "PersistResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-persistence",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "SendNotification"
+    },
+    "SendNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-notification",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "OnFailure"
+        }
+      ],
+      "Next": "WorkflowSuccess"
+    },
+    "WorkflowSuccess": {
+      "Type": "Succeed"
+    },
+    "OnManualReview": {
+      "Type": "Pass",
+      "Result": "Workflow paused for manual OCR review",
+      "End": true
+    },
+    "OnFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:mayzerock-failure-handler",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "End": true
+    }
+  }
+}

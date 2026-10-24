@@ -35,3 +35,4 @@ Thumbs.db
 *.key
 .env
 data/company/
+infrastructure/lambda-packages/*.zip
